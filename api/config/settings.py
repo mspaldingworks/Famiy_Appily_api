@@ -116,9 +116,15 @@ REST_FRAMEWORK = {
     ],
 }
 
-# Shared secret n8n (or any other trusted external workflow) presents in the
-# X-Ingestion-Key header to POST scraped job postings into `ingestion`.
+# Shared secret an external workflow (Apify webhooks, n8n) presents in the
+# X-Ingestion-Key header — or a ?key= query param — to push scraped job
+# postings into `ingestion`.
 INGESTION_API_KEY = os.environ.get("INGESTION_API_KEY", "")
+
+# Required to read a finished Apify run's dataset. Apify's docs suggest default
+# datasets are public, but in practice an unauthenticated GET returns 403 — so
+# without this the webhook can't ingest anything.
+APIFY_TOKEN = os.environ.get("APIFY_TOKEN", "")
 
 LOGIN_URL = "/admin/login/"
 LOGIN_REDIRECT_URL = "/admin/"
