@@ -1,33 +1,27 @@
-# Family Appily — API / Data Contracts
+# Family Appily — App
 
-Companion repository to [`Family_Appily_app`](https://github.com/mspaldingworks/Family_Appily_app).
+Native SwiftUI family-management app for iPhone, iPad, Apple Watch, and Mac. Brings together the household's calendars, task list, weekly chore charts, and ticket-based reward system.
 
-## Read this first
+## Start here
 
-**There is no service here yet, and there may never need to be one.** See [`ARCHITECTURE_DECISION.md`](./ARCHITECTURE_DECISION.md) — whether this project needs a backend is an open question that should be answered before the app build starts.
+**`CLAUDE.md`** at the repo root is the build specification. Claude Code loads it automatically at the start of every session — it contains the accessibility constraints, platform requirements, design language, and the phased build plan.
 
-What this repo currently holds is the **canonical data contracts**: the schemas describing the family's chore, rotation, and reward-ticket systems, transcribed from their physical wall charts.
+**`family-hub-assets/`** contains the design system and seed data extracted from the family's physical wall charts:
 
-## Contracts
-
-| File | Describes |
+| Path | What it is |
 |---|---|
-| `contracts/family.json` | Per-child weekly chore schedules; the chore catalog with per-child display labels |
-| `contracts/rotation.json` | Shared family chore rotation. A 3-week cycle, computed from a formula rather than stored as a grid |
-| `contracts/tickets.json` | Ticket economy: earn catalog, spend tiers, 30-slot reward chart, Vault |
+| `data/family.json` | Per-child weekly chore schedules and the chore catalog |
+| `data/rotation.json` | Shared family chore rotation — a computed 3-week cycle |
+| `data/tickets.json` | Ticket economy: earn catalog, spend tiers, reward chart |
+| `design/tokens.json` | Colors, typography, frame styles, layout rules |
+| `design/avatars/` | Per-child mascot SVGs (pizza, panda, penguin) |
+| `design/motifs/` | Decorative SVGs, star token, vault |
+| `preview.html` | Open in a browser to see it all rendered |
 
-## Note on duplication
+## Current state
 
-These three files are currently mirrored in the app repo at `family-hub-assets/data/`, because the app needs them locally to seed its data store offline.
+Pre-Phase-0. Nothing has been built yet. See §11 of `CLAUDE.md` for the open blockers — most importantly `rotationEpoch` and the backend architecture decision.
 
-**Until the architecture decision is made, treat the app repo as the source of truth** and mirror changes here:
+## Build order
 
-```sh
-cp ../Family_Appily_app/family-hub-assets/data/*.json contracts/
-```
-
-Once Option A or B is chosen, collapse this to a single owner. Two copies of the same schema will drift, and the drift will be discovered at the worst possible moment.
-
-## Privacy constraint
-
-`contracts/tickets.json` contains entries flagged `private: true`. These are health-adjacent items belonging to one child. Any consumer of these contracts — service, app, or export — must not surface them outside that child's own profile and adult accounts. This is a hard requirement, not a preference.
+Phases are defined in §9 of `CLAUDE.md`. Run them in order; each is a self-contained prompt for Claude Code. Do not skip ahead — later phases assume the data layer from earlier ones.
