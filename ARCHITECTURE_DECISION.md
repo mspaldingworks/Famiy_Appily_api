@@ -1,6 +1,9 @@
 # Open decision: does this project need a backend at all?
 
-**Status: UNRESOLVED. Resolve before Phase 0 of the app build.**
+**Status: RESOLVED, 2026-08-31, as a split.**
+
+- **Household data (chores, rotation, tickets): Option A, no backend.** See below — unchanged from the original recommendation. `contracts/` in this repo holds versioned static JSON, served with no database, no auth, no API framework.
+- **Job Search: Option B, a deliberate scoped exception.** This is the adult user's own data (job applications, professional identity), not a child's, so the privacy rationale below doesn't apply to it the same way. It also has a real, concrete need for a server: a Hostinger-hosted n8n workflow pushes in RSS-sourced job postings via a webhook, which a pure on-device app has no way to receive. The `api/` directory in this repo is a real running Django/DRF service for exactly this — `tracker`, `identity`, and `ingestion` apps, DRF TokenAuthentication for the native app, deployed at its own subdomain, isolated from every other stack on the shared VPS. Nothing about this changes the household-data decision below; it is a narrow, justified carve-out for one feature, not a reopening of the general question.
 
 ## The conflict
 

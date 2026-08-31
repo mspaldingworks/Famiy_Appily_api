@@ -1,0 +1,51 @@
+name: family-appily-api
+
+networks:
+  family_appily_internal:
+
+services:
+  db:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    mem_limit: 256m
+    env_file:
+      - ../api/.env
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - /srv/docker/family-appily-api/postgres:/var/lib/postgresql/data
+    networks:
+      - family_appily_internal
+
+  redis:
+    image: redis:alpine
+    restart: unless-stopped
+    mem_limit: 64m
+    networks:
+      - family_appily_internal
+
+  web:
+    build:
+      context: ../api
+    restart: unless-stopped
+    mem_limit: 384m
+    env_file:
+      - ../api/.env
+    environment:
+      POSTGRES_HOST: db
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - /srv/docker/family-appily-api/media:/app/media
+      - /srv/docker/family-appily-api/staticfiles:/app/staticfiles
+    ports:
+      - "127.0.0.1:8004:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - family_appily_internal

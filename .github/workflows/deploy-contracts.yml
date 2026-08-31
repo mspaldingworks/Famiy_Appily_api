@@ -1,0 +1,52 @@
+name: Deploy contracts
+
+# Deploys contracts/*.json to Hostinger shared hosting as static files.
+# Per ARCHITECTURE_DECISION.md: no server, no database, no auth — just files.
+# This never touches api/ (the Job Search backend), which deploys separately
+# via its own Docker Compose flow on the VPS.
+#
+# Requires two repo secrets, set once in GitHub → Settings → Secrets → Actions:
+#   HOSTINGER_SSH_KEY  — private key for a user with write access to the
+#                        family-appily.com shared-hosting account
+#   HOSTINGER_SSH_HOST — the shared-hosting SSH host (from hPanel → Advanced → SSH)
+# and this variable (Settings → Secrets → Actions → Variables):
+#   HOSTINGER_SSH_USER — the shared-hosting SSH username (u628817684)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "contracts/**"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Regenerate manifest.json
+        run: |
+          cd contracts
+          etag=$(cat family.json rotation.json tickets.json | shasum -a 256 | cut -d' ' -f1)
+          updated=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          version=$(( $(grep -o '"version": [0-9]*' manifest.json | grep -o '[0-9]*') + 1 ))
+          cat > manifest.json <<EOF
+          {
+            "version": $version,
+            "updated": "$updated",
+            "etag": "$etag"
+          }
+          EOF
+
+      - name: Deploy via rsync over SSH
+        env:
+          SSH_KEY: ${{ secrets.HOSTINGER_SSH_KEY }}
+          SSH_HOST: ${{ secrets.HOSTINGER_SSH_HOST }}
+          SSH_USER: ${{ vars.HOSTINGER_SSH_USER }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
+          rsync -avz -e "ssh -i ~/.ssh/deploy_key" \
+            contracts/ "$SSH_USER@$SSH_HOST:domains/family-appily.com/public_html/appily/v1/"
