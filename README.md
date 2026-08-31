@@ -1,27 +1,31 @@
-# Family Appily — App
+# Family Appily — API / Data Contracts
 
-Native SwiftUI family-management app for iPhone, iPad, Apple Watch, and Mac. Brings together the household's calendars, task list, weekly chore charts, and ticket-based reward system.
+Companion repository to [`Family_Appily_app`](https://github.com/mspaldingworks/Family_Appily_app).
 
-## Start here
+## Read this first
 
-**`CLAUDE.md`** at the repo root is the build specification. Claude Code loads it automatically at the start of every session — it contains the accessibility constraints, platform requirements, design language, and the phased build plan.
+See [`ARCHITECTURE_DECISION.md`](./ARCHITECTURE_DECISION.md) for the resolved architecture. Short version: **household data (chores, rotation, tickets) has no backend** — SwiftData + CloudKit private database only, because the ticket-earning catalog contains a child's therapy-related activities. **Job Search is a deliberate, scoped exception** — it's the adult user's own data, not a child's, and a real dynamic API is needed so an external automation (n8n) can push in RSS-sourced job postings.
 
-**`family-hub-assets/`** contains the design system and seed data extracted from the family's physical wall charts:
+This repo now holds both:
 
-| Path | What it is |
+## `contracts/` — static data, no server
+
+The canonical schemas for the family's chore, rotation, and reward-ticket systems, transcribed from their physical wall charts. Served as versioned static JSON files (no database, no auth, no API framework) once deployed — see `ARCHITECTURE_DECISION.md` for the manifest/versioning scheme.
+
+| File | Describes |
 |---|---|
-| `data/family.json` | Per-child weekly chore schedules and the chore catalog |
-| `data/rotation.json` | Shared family chore rotation — a computed 3-week cycle |
-| `data/tickets.json` | Ticket economy: earn catalog, spend tiers, reward chart |
-| `design/tokens.json` | Colors, typography, frame styles, layout rules |
-| `design/avatars/` | Per-child mascot SVGs (pizza, panda, penguin) |
-| `design/motifs/` | Decorative SVGs, star token, vault |
-| `preview.html` | Open in a browser to see it all rendered |
+| `contracts/family.json` | Per-child weekly chore schedules; the chore catalog with per-child display labels |
+| `contracts/rotation.json` | Shared family chore rotation. A 3-week cycle, computed from a formula rather than stored as a grid |
+| `contracts/tickets.json` | Ticket economy: earn catalog, spend tiers, 30-slot reward chart, Vault |
 
-## Current state
+These are mirrored in the app repo at `family-hub-assets/data/`, because the app needs them locally to seed its data store offline and must work fully in airplane mode. Treat the app repo as the source of truth and mirror changes here:
 
-Pre-Phase-0. Nothing has been built yet. See §11 of `CLAUDE.md` for the open blockers — most importantly `rotationEpoch` and the backend architecture decision.
+```sh
+cp ../Family_Appily_app/family-hub-assets/data/*.json contracts/
+```
 
-## Build order
+**Privacy constraint**: `contracts/tickets.json` contains entries flagged `private: true` — health-adjacent items belonging to one child. Any consumer of these contracts must not surface them outside that child's own profile and adult accounts.
 
-Phases are defined in §9 of `CLAUDE.md`. Run them in order; each is a self-contained prompt for Claude Code. Do not skip ahead — later phases assume the data layer from earlier ones.
+## `api/` — Django/DRF, the Job Search backend
+
+A real, running service — the one deliberate exception to the "no backend" rule. Three apps: `tracker` (companies/applications/contacts/timeline), `identity` (professional profile/skills/links/resume versions), `ingestion` (the n8n webhook + promote-to-application). Native app auth is DRF TokenAuthentication (`Authorization: Token <token>`); Django admin uses session auth for browser-based management. See `docker-compose/` and `deploy/` for how it runs and deploys.
