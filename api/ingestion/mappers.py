@@ -12,9 +12,12 @@ import json
 import re
 import urllib.request
 
+from .scoring import score_posting
+
 TITLE_KEYS = ("title", "positionName", "jobTitle", "position", "name")
 COMPANY_KEYS = ("companyName", "company", "employer", "companyInfo", "organization")
-URL_KEYS = ("url", "jobUrl", "link", "applyUrl", "detailsUrl", "jobLink")
+URL_KEYS = ("url", "jobUrl", "link", "detailsUrl", "jobLink")
+APPLY_URL_KEYS = ("applyUrl", "applyLink", "jobUrl", "url")
 
 # Model column limits — values are truncated to fit rather than blowing up the
 # whole batch on one long field.
@@ -58,12 +61,23 @@ def normalize_item(item, source):
         # link. The original is still in raw_payload.
         url = ""
 
+    # The employer's ATS link, kept separately so an Apply button can skip the
+    # job-board listing and go where the form actually is.
+    apply_url = _first_string(item, APPLY_URL_KEYS)
+    if len(apply_url) > MAX_URL:
+        apply_url = ""
+
+    score, reasons = score_posting(item)
+
     return {
         "source": source,
         "title": title[:MAX_TITLE],
         "company_name": _first_string(item, COMPANY_KEYS)[:MAX_COMPANY],
         "url": url,
+        "apply_url": apply_url,
         "raw_payload": item,
+        "score": score,
+        "score_reasons": reasons,
     }
 
 

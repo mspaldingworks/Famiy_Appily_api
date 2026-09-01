@@ -13,12 +13,20 @@ class IngestedPosting(models.Model):
     # Job-board URLs routinely blow past URLField's 200-char default once
     # tracking/query params are attached, so this is widened deliberately.
     url = models.URLField(max_length=1000, blank=True)
+    # Where the application actually lives — usually the employer's ATS, which
+    # is a different destination from the job-board listing in `url`.
+    apply_url = models.URLField(max_length=1000, blank=True)
     raw_payload = models.JSONField(default=dict, blank=True)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.NEW)
+    # Fit against her profile, 0-100, computed at ingest. Stored rather than
+    # computed on read so the ordering is cheap and the reasoning is auditable.
+    score = models.PositiveSmallIntegerField(default=0, db_index=True)
+    score_reasons = models.JSONField(default=list, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ["-created_at"]
+        # Best fit first; recency breaks ties.
+        ordering = ["-score", "-created_at"]
         constraints = [
             # A recurring scrape re-sees the same jobs every run. Dedupe on
             # (source, url) regardless of status, so postings the user already
