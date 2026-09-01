@@ -91,3 +91,36 @@ class ScoringTests(SimpleTestCase):
             self.assertGreaterEqual(score, 0)
             self.assertLessEqual(score, 100)
             self.assertIsInstance(reasons, list)
+
+
+class UnpaidRoleTests(SimpleTestCase):
+    """
+    "Volunteer Grant Writer" scored a perfect 100 in production: it matches the
+    grants lane on every keyword. She needs paid work, so it can't sit at the
+    top of the list.
+    """
+
+    def test_volunteer_roles_score_zero_however_well_they_match(self):
+        score, reasons = score_posting(posting(
+            title="Volunteer Grant Writer",
+            companyName="Some Foundation",
+            descriptionText="Write grants, manage funder compliance, and steward donors.",
+        ))
+        self.assertEqual(score, 0)
+        self.assertIn("Unpaid or volunteer position", reasons)
+
+    def test_internships_and_unpaid_titles_are_caught_too(self):
+        for title in ("Marketing Intern ", "Unpaid Development Associate", "Pro Bono Grant Writer"):
+            with self.subTest(title=title):
+                self.assertEqual(score_posting(posting(title=title))[0], 0)
+
+    def test_managing_volunteers_is_still_a_real_job(self):
+        # The word appears constantly in perfectly good paid postings — this is
+        # why the check is on the title only, never the description.
+        score, reasons = score_posting(posting(
+            title="Director of Development",
+            companyName="Louisville Urban League",
+            descriptionText="Recruit and manage volunteers, run our internship program, write grants.",
+        ))
+        self.assertGreater(score, 0)
+        self.assertNotIn("Unpaid or volunteer position", reasons)

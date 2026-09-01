@@ -40,6 +40,11 @@ OFF_TARGET = [
     "server", "dishwasher", "barista", "retail associate", "stocker",
 ]
 
+# Title words that mean the role isn't paid employment. Checked against the
+# title only: descriptions routinely say "manage volunteers" or "recruit interns"
+# in roles that are perfectly good paid jobs.
+UNPAID_TITLES = ["volunteer", "unpaid", "pro bono", "intern ", "internship"]
+
 # Deliberately narrow. An earlier version included "community" and "youth",
 # which appear in nearly every job description ("our community of users") and
 # scored Canon, Amentum, and Healogics as mission-driven employers.
@@ -165,6 +170,14 @@ def score_posting(payload):
         score -= 45
         reasons.append("Looks like a clinical/trades/retail role — probably noise")
 
+    # Unpaid work is not a job. "Volunteer Grant Writer" scored a perfect 100
+    # because it matches the grants lane on every keyword — it just doesn't pay.
+    # Recorded here but applied at the very end: zeroing the running total mid
+    # function doesn't work, because every rule below would add points back on.
+    is_unpaid = any(word in title for word in UNPAID_TITLES)
+    if is_unpaid:
+        reasons.append("Unpaid or volunteer position")
+
     company = str(payload.get("companyName") or "").lower()
     if any(signal in text for signal in NONPROFIT_TEXT_SIGNALS) or \
        any(signal in company for signal in NONPROFIT_NAME_SIGNALS):
@@ -188,5 +201,9 @@ def score_posting(payload):
         score += points
         if reason:
             reasons.append(reason)
+
+    if is_unpaid:
+        # No amount of lane fit makes an unpaid post a job she can take.
+        return 0, reasons
 
     return max(0, min(MAX_SCORE, score)), reasons
