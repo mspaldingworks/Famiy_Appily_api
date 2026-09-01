@@ -9,6 +9,9 @@ from rest_framework.views import APIView
 
 from tracker.serializers import ApplicationSerializer
 
+from identity.models import ProfessionalProfile
+
+from .generation import GenerationUnavailable, generate_materials
 from .mappers import fetch_dataset_items
 from .models import IngestedPosting
 from .serializers import IngestedPostingSerializer
@@ -41,6 +44,26 @@ class IngestedPostingViewSet(viewsets.ModelViewSet):
         if status_filter:
             queryset = queryset.filter(status=status_filter)
         return queryset
+
+    @action(detail=True, methods=["post"])
+    def materials(self, request, pk=None):
+        """
+        Tailored cover letter and resume for this posting. Cached after the
+        first run so re-opening a posting is free; pass ?refresh=1 to redo it.
+        """
+        posting = self.get_object()
+        if posting.generated_materials and request.query_params.get("refresh") != "1":
+            return Response(posting.generated_materials)
+
+        profile = ProfessionalProfile.objects.first()
+        try:
+            materials = generate_materials(posting, profile.master_resume if profile else "")
+        except GenerationUnavailable as error:
+            return Response({"detail": str(error)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+        posting.generated_materials = materials
+        posting.save(update_fields=["generated_materials"])
+        return Response(materials)
 
     @action(detail=True, methods=["post"])
     def promote(self, request, pk=None):

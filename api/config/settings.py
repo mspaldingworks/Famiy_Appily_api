@@ -126,5 +126,9 @@ INGESTION_API_KEY = os.environ.get("INGESTION_API_KEY", "")
 # without this the webhook can't ingest anything.
 APIFY_TOKEN = os.environ.get("APIFY_TOKEN", "")
 
+# Used to generate tailored application materials. Without it the materials
+# endpoint returns a clear "not configured" message rather than failing oddly.
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+
 LOGIN_URL = "/admin/login/"
 LOGIN_REDIRECT_URL = "/admin/"

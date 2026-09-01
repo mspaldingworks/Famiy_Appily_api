@@ -22,6 +22,9 @@ class IngestedPosting(models.Model):
     # computed on read so the ordering is cheap and the reasoning is auditable.
     score = models.PositiveSmallIntegerField(default=0, db_index=True)
     score_reasons = models.JSONField(default=list, blank=True)
+    # Cached cover letter / tailored resume, so re-opening a posting doesn't
+    # re-run (and re-pay for) generation.
+    generated_materials = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
