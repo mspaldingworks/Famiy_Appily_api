@@ -25,6 +25,11 @@ Absolute rules:
 candidate's background. Never invent or upgrade anything.
 - If the posting requires something the candidate lacks, do NOT imply they have \
 it. Name it in the GAPS section instead, with honest language they can use.
+- The COVER_LETTER must never concede, apologize for, or enumerate what the \
+candidate lacks. No "I want to be straight with you about fit", no paragraph \
+listing what they haven't done, no "if that trade is worth a conversation". \
+Shortcomings belong in GAPS, which only the candidate sees. The letter makes \
+the positive case and stops there.
 - Prefer the candidate's own phrasing and real metrics over generic claims.
 - Write in first person for the cover letter, plain confident prose. No \
 "I am writing to express my interest", no filler, no superlatives about \

@@ -100,6 +100,18 @@ class GenerateMaterialsTests(TestCase):
         self.assertIn("We need a fundraiser", sent)
         self.assertIn("never invent", kwargs["system"].lower().replace("  ", " "))
 
+    def test_the_letter_is_told_not_to_concede_gaps(self):
+        # Gaps belong in GAPS, which only she sees. A letter that argues against
+        # itself was the first version's actual behaviour, so guard it.
+        posting = make_posting(url="https://example.test/job/9")
+        with patch("anthropic.Anthropic") as client:
+            stub_stream(client, WELL_FORMED)
+            generate_materials(posting, "background")
+
+        system = client.return_value.messages.stream.call_args.kwargs["system"].lower()
+        self.assertIn("never concede", system)
+        self.assertIn("shortcomings belong in gaps", system)
+
     def test_refuses_clearly_when_prerequisites_are_missing(self):
         posting = make_posting()
         with self.assertRaises(GenerationUnavailable):
