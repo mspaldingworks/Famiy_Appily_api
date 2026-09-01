@@ -73,6 +73,25 @@ class SheetSyncTests(TestCase):
         worksheet, _ = self.sync_with_mock()
         worksheet.clear.assert_called_once()
 
+    def test_a_403_explains_how_to_fix_it(self):
+        # Link-sharing lets the service account read but not write, so this is
+        # the failure she'll actually hit. It has to name the fix.
+        import gspread
+
+        response = MagicMock()
+        response.status_code = 403
+        error = gspread.exceptions.APIError(response)
+        error.response = response
+
+        with patch("gspread.service_account") as service_account:
+            service_account.return_value.open_by_key.side_effect = error
+            with self.assertRaises(SheetUnavailable) as caught:
+                sync_sheet()
+
+        message = str(caught.exception)
+        self.assertIn("Editor", message)
+        self.assertIn("link-sharing", message.lower())
+
     def test_long_cover_letters_are_truncated_below_the_cell_limit(self):
         # Sheets rejects the whole write if any cell is over its limit, which
         # would lose the entire sync rather than one field.

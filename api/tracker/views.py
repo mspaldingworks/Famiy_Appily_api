@@ -1,5 +1,6 @@
 import datetime
 
+from django.http import FileResponse, Http404
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -58,6 +59,36 @@ class ApplicationViewSet(viewsets.ModelViewSet):
         if job is None:
             return Response({"detail": "No such prepare job."}, status=status.HTTP_404_NOT_FOUND)
         return Response(job)
+
+    @action(detail=True, methods=["post"])
+    def documents(self, request, pk=None):
+        """(Re)render the cover letter and resume PDFs for this application."""
+        from ingestion.documents import build_documents
+
+        application = self.get_object()
+        written = build_documents(application)
+        if not written:
+            return Response(
+                {"detail": "Nothing to render — this posting has no generated materials yet."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        return Response({"written": written})
+
+    @action(detail=True, methods=["get"], url_path=r"download/(?P<kind>resume|cover-letter)")
+    def download(self, request, pk=None, kind=None):
+        """
+        Stream a PDF through token auth.
+
+        Deliberately not a public /media/ URL: these carry her full contact
+        details and a letter written for one employer, and file names are
+        guessable enough that "unlisted" would not be private.
+        """
+        application = self.get_object()
+        field = application.resume if kind == "resume" else application.cover_letter
+        if not field:
+            raise Http404("That document hasn't been rendered yet.")
+        return FileResponse(field.open("rb"), content_type="application/pdf",
+                            as_attachment=True, filename=field.name.rsplit("/", 1)[-1])
 
     @action(detail=True, methods=["post"], url_path="mark-applied")
     def mark_applied(self, request, pk=None):

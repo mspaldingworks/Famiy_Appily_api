@@ -86,11 +86,35 @@ def _open_worksheet():
     import gspread
 
     client = gspread.service_account(filename=settings.GOOGLE_SERVICE_ACCOUNT_FILE)
-    spreadsheet = client.open_by_key(settings.JOB_SHEET_ID)
     try:
-        return spreadsheet.worksheet(WORKSHEET_TITLE)
-    except gspread.WorksheetNotFound:
-        return spreadsheet.add_worksheet(title=WORKSHEET_TITLE, rows=200, cols=len(HEADERS))
+        spreadsheet = client.open_by_key(settings.JOB_SHEET_ID)
+        try:
+            return spreadsheet.worksheet(WORKSHEET_TITLE)
+        except gspread.WorksheetNotFound:
+            return spreadsheet.add_worksheet(title=WORKSHEET_TITLE, rows=200, cols=len(HEADERS))
+    except gspread.exceptions.APIError as error:
+        # By far the most common setup mistake: link-sharing grants the service
+        # account read access, so the sheet opens and only the write 403s. The
+        # raw error says "caller does not have permission", which doesn't hint
+        # at the fix, so name the account and the required role.
+        if getattr(error, "response", None) is not None and error.response.status_code == 403:
+            raise SheetUnavailable(
+                f"The sheet is readable but not writable. Share it with "
+                f"{_service_account_email()} as an Editor "
+                f"(link-sharing alone only grants view access)."
+            ) from error
+        raise SheetUnavailable(f"Google rejected the request: {error}") from error
+
+
+def _service_account_email():
+    """Read the client_email out of the key file, for error messages."""
+    import json
+
+    try:
+        with open(settings.GOOGLE_SERVICE_ACCOUNT_FILE) as handle:
+            return json.load(handle).get("client_email", "the service account")
+    except Exception:
+        return "the service account"
 
 
 def sync_sheet():

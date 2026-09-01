@@ -1,4 +1,6 @@
 import os
+import sys
+import tempfile
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -96,6 +98,10 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATIC_ROOT = os.environ.get("DJANGO_STATIC_ROOT", str(BASE_DIR / "staticfiles"))
 STORAGES = {
+    # Declaring STORAGES at all replaces Django's defaults wholesale, so "default"
+    # has to be restated — without it every FileField save (application PDFs,
+    # uploaded resumes) raises InvalidStorageError.
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
 }
 
@@ -136,6 +142,20 @@ ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 # email as an Editor, or writes 403 even with a valid key.
 GOOGLE_SERVICE_ACCOUNT_FILE = os.environ.get("GOOGLE_SERVICE_ACCOUNT_FILE", "")
 JOB_SHEET_ID = os.environ.get("JOB_SHEET_ID", "")
+
+# The suite is run inside the production container (there's no separate test
+# host), so a FileField save in a test would write real files into live media —
+# it has done exactly that. Redirect both the path and the storage backend, since
+# MEDIA_ROOT alone doesn't move where the default storage writes.
+if "test" in sys.argv:
+    MEDIA_ROOT = tempfile.mkdtemp(prefix="family-appily-test-media-")
+    STORAGES = {
+        **STORAGES,
+        "default": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+            "OPTIONS": {"location": MEDIA_ROOT},
+        },
+    }
 
 LOGIN_URL = "/admin/login/"
 LOGIN_REDIRECT_URL = "/admin/"

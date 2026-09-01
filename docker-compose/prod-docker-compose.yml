@@ -40,6 +40,9 @@ services:
     volumes:
       - /srv/docker/family-appily-api/media:/app/media
       - /srv/docker/family-appily-api/staticfiles:/app/staticfiles
+      # Google service-account key. Lives on the host outside the rsync tree so
+      # a deploy can't delete it, and read-only so the app can't rewrite it.
+      - /srv/docker/family-appily-api/secrets:/app/secrets:ro
     ports:
       - "127.0.0.1:8004:8000"
     depends_on:

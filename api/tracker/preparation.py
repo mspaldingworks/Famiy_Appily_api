@@ -55,6 +55,7 @@ def prepare_postings(posting_ids):
 
 
 def _run(job, posting_ids):
+    from ingestion.documents import build_documents
     from ingestion.generation import GenerationUnavailable, generate_materials
     from ingestion.models import IngestedPosting
     from ingestion.services import promote_posting_to_application
@@ -98,6 +99,9 @@ def _run(job, posting_ids):
                 )
                 application.status = Application.Status.READY
                 application.save(update_fields=["status"])
+            # PDFs are what a portal actually accepts; render them here so the
+            # queue is submit-ready rather than needing a second pass.
+            build_documents(application)
             result["ok"] = True
             result["application_id"] = application.pk
             result["detail"] = materials_error or "Ready to submit."

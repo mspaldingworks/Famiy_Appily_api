@@ -10,3 +10,7 @@ venv/
 
 # OS
 .DS_Store
+
+# Never commit Google service-account keys.
+*service-account*.json
+secrets/

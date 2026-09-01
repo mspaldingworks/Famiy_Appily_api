@@ -51,9 +51,6 @@ Awards won as the applicant, not on an employer's behalf:
 - CAP Grant (2012)
 - Baltimore Magazine, Best of Baltimore — Best Residency (2012)
 
-This is a real differentiator for grant-writing roles: she has competed for and
-won grants herself, which is different from administering someone else's.
-
 ## Board and community leadership
 
 - EmergeKY — class representative (2025)
@@ -69,6 +66,14 @@ won grants herself, which is different from administering someone else's.
 - Code Louisville, web/software development (2018–2021)
 
 ## Positioning notes for the generator
+
+Everything below this heading is guidance for writing, and is excluded from the
+rendered resume PDF (see `RESUME_SECTIONS` in `ingestion/documents.py`). Keep
+commentary here — anything written above lands verbatim in front of an employer.
+
+Winning the Warhol and CAP grants **as the applicant** is a real differentiator
+for the grants lane: competing for funding is not the same as administering
+someone else's award. Lead with it there.
 
 Five lanes she is actively targeting, strongest fit first for a given posting:
 
