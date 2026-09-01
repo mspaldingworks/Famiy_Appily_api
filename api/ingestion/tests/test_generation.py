@@ -21,7 +21,8 @@ Development professional with five years of nonprofit fundraising experience.
 - Grew Give for Good Louisville to $17,000 from 117 donors
 - Migrated donor data from Salesforce to Little Green Light
 ===GAPS===
-Salesforce Marketing Cloud: you have Salesforce as a donor CRM, not Marketing Cloud.
+- Salesforce Marketing Cloud: you have Salesforce as a donor CRM, not Marketing Cloud.
+- PMP certification preferred: she doesn't hold one.
 """
 
 
@@ -32,6 +33,19 @@ def fake_response(text):
     response = MagicMock()
     response.content = [block]
     return response
+
+
+def stub_stream(client, text):
+    """
+    Wire a mocked Anthropic client so messages.stream(...) yields `text`.
+
+    The real call streams (a 16k-token response with thinking would otherwise
+    hit request timeouts), so the mock has to match that shape: stream() returns
+    a context manager whose get_final_message() gives the finished message.
+    """
+    stream = client.return_value.messages.stream
+    stream.return_value.__enter__.return_value.get_final_message.return_value = fake_response(text)
+    return stream
 
 
 def make_posting(description="x" * 500, url="https://example.test/job/1"):
@@ -49,21 +63,25 @@ class GenerateMaterialsTests(TestCase):
     def test_parses_the_four_sections(self):
         posting = make_posting()
         with patch("anthropic.Anthropic") as client:
-            client.return_value.messages.create.return_value = fake_response(WELL_FORMED)
+            stub_stream(client, WELL_FORMED)
             materials = generate_materials(posting, "Madelyn Spalding — Director of Development...")
 
         self.assertIn("$17,000", materials["cover_letter"])
         self.assertIn("Development professional", materials["resume_summary"])
         self.assertEqual(len(materials["resume_bullets"]), 2)
         self.assertTrue(materials["resume_bullets"][0].startswith("Grew Give for Good"))
-        self.assertEqual(len(materials["gaps"]), 1)
+        self.assertEqual(len(materials["gaps"]), 2)
+        # Markers are stripped so the UI styles its own list, and a stray "-"
+        # doesn't show up in front of every gap.
+        self.assertTrue(materials["gaps"][0].startswith("Salesforce Marketing Cloud"))
+        self.assertTrue(materials["resume_bullets"][0].startswith("Grew Give for Good"))
         self.assertFalse(materials["unparsed"])
 
     def test_keeps_the_output_when_the_format_markers_are_missing(self):
         # A formatting miss shouldn't throw away work that costs money to produce.
         posting = make_posting()
         with patch("anthropic.Anthropic") as client:
-            client.return_value.messages.create.return_value = fake_response("Dear Hiring Team, ...")
+            stub_stream(client, "Dear Hiring Team, ...")
             materials = generate_materials(posting, "background")
 
         self.assertTrue(materials["unparsed"])
@@ -72,10 +90,10 @@ class GenerateMaterialsTests(TestCase):
     def test_uses_opus_5_and_sends_both_the_background_and_the_posting(self):
         posting = make_posting(description="We need a fundraiser. " * 40)
         with patch("anthropic.Anthropic") as client:
-            client.return_value.messages.create.return_value = fake_response(WELL_FORMED)
+            stub_stream(client, WELL_FORMED)
             generate_materials(posting, "CANDIDATE BACKGROUND TEXT")
 
-        kwargs = client.return_value.messages.create.call_args.kwargs
+        kwargs = client.return_value.messages.stream.call_args.kwargs
         self.assertEqual(kwargs["model"], "claude-opus-5")
         sent = kwargs["messages"][0]["content"]
         self.assertIn("CANDIDATE BACKGROUND TEXT", sent)
@@ -98,7 +116,7 @@ class GenerateMaterialsTests(TestCase):
     def test_api_failure_becomes_a_readable_error(self):
         posting = make_posting()
         with patch("anthropic.Anthropic") as client:
-            client.return_value.messages.create.side_effect = RuntimeError("overloaded")
+            client.return_value.messages.stream.side_effect = RuntimeError("overloaded")
             with self.assertRaises(GenerationUnavailable):
                 generate_materials(posting, "background")
 
@@ -117,11 +135,11 @@ class MaterialsEndpointTests(TestCase):
 
     def test_generates_then_serves_from_cache(self):
         with patch("anthropic.Anthropic") as client:
-            client.return_value.messages.create.return_value = fake_response(WELL_FORMED)
+            stub_stream(client, WELL_FORMED)
             first = self.client.post(self.url(), **self.auth)
             second = self.client.post(self.url(), **self.auth)
             # Second call must not cost money again.
-            self.assertEqual(client.return_value.messages.create.call_count, 1)
+            self.assertEqual(client.return_value.messages.stream.call_count, 1)
 
         self.assertEqual(first.status_code, 200)
         self.assertEqual(second.status_code, 200)
@@ -131,10 +149,10 @@ class MaterialsEndpointTests(TestCase):
 
     def test_refresh_regenerates(self):
         with patch("anthropic.Anthropic") as client:
-            client.return_value.messages.create.return_value = fake_response(WELL_FORMED)
+            stub_stream(client, WELL_FORMED)
             self.client.post(self.url(), **self.auth)
             self.client.post(self.url(refresh=True), **self.auth)
-            self.assertEqual(client.return_value.messages.create.call_count, 2)
+            self.assertEqual(client.return_value.messages.stream.call_count, 2)
 
     def test_missing_key_returns_503_with_a_usable_message(self):
         with override_settings(ANTHROPIC_API_KEY=""):

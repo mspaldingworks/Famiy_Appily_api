@@ -58,6 +58,11 @@ class GenerationUnavailable(Exception):
     """Raised when materials can't be generated — missing key, resume, or API failure."""
 
 
+def _strip_marker(line):
+    """Drop a leading list marker ("- ", "* ", "• ") so the UI can style its own."""
+    return line.strip().lstrip("-*•").strip()
+
+
 def _posting_brief(posting):
     payload = posting.raw_payload or {}
     salary = payload.get("salary") or {}
@@ -99,7 +104,11 @@ def generate_materials(posting, master_resume):
         import anthropic
 
         client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
-        response = client.messages.create(
+        # Streamed, not a plain create(): thinking plus a 16k budget runs well past
+        # the SDK's non-streaming ceiling, and a long single response is exactly
+        # what trips request timeouts. get_final_message() still hands back one
+        # complete message, so nothing downstream has to care that it streamed.
+        with client.messages.stream(
             model=MODEL,
             max_tokens=16000,
             thinking={"type": "adaptive"},
@@ -114,7 +123,8 @@ def generate_materials(posting, master_resume):
                     f"{_posting_brief(posting)}"
                 ),
             }],
-        )
+        ) as stream:
+            response = stream.get_final_message()
     except Exception as error:
         logger.exception("Anthropic call failed for posting %s", posting.pk)
         raise GenerationUnavailable(f"Couldn't reach the writing model: {error}") from error
@@ -134,11 +144,14 @@ def generate_materials(posting, master_resume):
         }
 
     bullets = [
-        line.strip().lstrip("-").strip()
+        _strip_marker(line)
         for line in match.group("resume_bullets").splitlines()
         if line.strip().startswith("-")
     ]
-    gaps = [line.strip() for line in match.group("gaps").splitlines() if line.strip()]
+    # Gaps aren't required to be bulleted (the model sometimes writes prose), so
+    # take every non-empty line but still strip a marker when there is one —
+    # otherwise the UI renders a stray dash in front of each item.
+    gaps = [_strip_marker(line) for line in match.group("gaps").splitlines() if line.strip()]
 
     return {
         "cover_letter": match.group("cover_letter").strip(),
