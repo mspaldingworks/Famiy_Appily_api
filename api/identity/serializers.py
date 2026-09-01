@@ -6,7 +6,11 @@ from .models import ProfessionalProfile, ProfileLink, ResumeVersion, Skill
 class ProfessionalProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProfessionalProfile
-        fields = ["id", "headline", "summary", "master_resume", "updated_at"]
+        fields = [
+            "id", "headline", "summary", "master_resume",
+            "legal_name", "email", "phone", "city_state",
+            "linkedin_url", "portfolio_url", "updated_at",
+        ]
 
 
 class SkillSerializer(serializers.ModelSerializer):

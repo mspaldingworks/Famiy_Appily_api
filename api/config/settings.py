@@ -130,5 +130,12 @@ APIFY_TOKEN = os.environ.get("APIFY_TOKEN", "")
 # endpoint returns a clear "not configured" message rather than failing oddly.
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 
+# Google Sheets mirror of the application pipeline. Both must be set for sync to
+# run; without them the app logs and carries on rather than failing her action.
+# The JSON key is a service-account file — share the sheet with that account's
+# email as an Editor, or writes 403 even with a valid key.
+GOOGLE_SERVICE_ACCOUNT_FILE = os.environ.get("GOOGLE_SERVICE_ACCOUNT_FILE", "")
+JOB_SHEET_ID = os.environ.get("JOB_SHEET_ID", "")
+
 LOGIN_URL = "/admin/login/"
 LOGIN_REDIRECT_URL = "/admin/"

@@ -27,11 +27,26 @@ class ApplicationEventSerializer(serializers.ModelSerializer):
 class ApplicationSerializer(serializers.ModelSerializer):
     events = ApplicationEventSerializer(many=True, read_only=True)
     company_name = serializers.CharField(source="company.name", read_only=True)
+    # Surfaced so the queue screen and the auto-filler can reach the portal and
+    # the tailored text without a second round trip per application.
+    apply_url = serializers.SerializerMethodField()
+    generated_materials = serializers.SerializerMethodField()
+
+    def get_apply_url(self, application):
+        posting = application.source_posting
+        if not posting:
+            return application.job_url
+        return posting.apply_url or posting.url or application.job_url
+
+    def get_generated_materials(self, application):
+        posting = application.source_posting
+        return (posting.generated_materials if posting else {}) or {}
 
     class Meta:
         model = Application
         fields = [
-            "id", "company", "company_name", "role_title", "job_url", "status", "source",
+            "id", "company", "company_name", "source_posting", "apply_url",
+            "generated_materials", "role_title", "job_url", "status", "source",
             "applied_date", "salary_notes", "resume", "cover_letter", "notes",
             "created_at", "updated_at", "events",
         ]

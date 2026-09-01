@@ -49,6 +49,7 @@ def promote_posting_to_application(posting: IngestedPosting) -> Application:
     company, _ = Company.objects.get_or_create(name=company_name)
     application = Application.objects.create(
         company=company,
+        source_posting=posting,
         role_title=posting.title,
         job_url=posting.url,
         source=Application.Source.INGESTED,

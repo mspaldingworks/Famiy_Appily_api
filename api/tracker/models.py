@@ -30,6 +30,9 @@ class Contact(models.Model):
 class Application(models.Model):
     class Status(models.TextChoices):
         SAVED = "saved", "Saved"
+        # Materials generated and the record queued, but nothing submitted yet.
+        # This is the "pending" state the Google Sheet shows.
+        READY = "ready", "Ready to submit"
         APPLIED = "applied", "Applied"
         PHONE_SCREEN = "phone_screen", "Phone screen"
         INTERVIEW = "interview", "Interview"
@@ -42,6 +45,17 @@ class Application(models.Model):
         INGESTED = "ingested", "From ingestion pipeline"
 
     company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="applications")
+    # The posting this came from, so the sheet can show its score and generated
+    # materials and the auto-filler can find the apply URL. String reference
+    # keeps tracker from importing ingestion, which imports tracker.
+    # SET_NULL: losing a scraped posting must not delete a real application.
+    source_posting = models.ForeignKey(
+        "ingestion.IngestedPosting",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="applications",
+    )
     role_title = models.CharField(max_length=200)
     job_url = models.URLField(blank=True)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.SAVED)
