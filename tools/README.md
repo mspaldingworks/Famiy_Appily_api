@@ -47,10 +47,13 @@ text, which can.
 
 Known gaps, reported rather than guessed at:
 
-- **Custom dropdowns.** A native `<select>` fills; a styled button-and-listbox
-  (BambooHR's State picker, most Workday fields) does not.
+- **Custom dropdowns are handled** — the button-and-menu pattern most ATS use.
+  Each is resolved by name and re-snapshotted immediately before use: selecting
+  from one re-renders the others, and a ref captured earlier is already dead.
+  State accepts either "KY" or "Kentucky".
 - **Multi-step and account-gated flows.** Workday and iCIMS want an account
   before the form appears. Log in first, then run this on the form page.
 - **Captchas and consent checkboxes.** Deliberately untouched.
 
-Verified against BambooHR: 7 fields including both PDFs, nothing submitted.
+Verified against a live BambooHR form: 9 fields including State, Country and
+both PDFs, nothing submitted.

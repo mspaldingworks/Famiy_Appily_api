@@ -56,6 +56,24 @@ FIELD_RULES = [
 
 FILE_RULES = [("resume", r"resume|cv|curriculum"), ("cover_letter", r"cover letter")]
 
+# Dropdowns rendered as a button plus a menu, which is what most ATS use instead
+# of a native <select>. Clicking one opens a list of menuitems to match against.
+CHOICE_RULES = [("state", r"^state|^province|^region"), ("country", r"^country")]
+
+STATES = {
+    "AL": "Alabama", "AK": "Alaska", "AZ": "Arizona", "AR": "Arkansas", "CA": "California",
+    "CO": "Colorado", "CT": "Connecticut", "DE": "Delaware", "FL": "Florida", "GA": "Georgia",
+    "HI": "Hawaii", "ID": "Idaho", "IL": "Illinois", "IN": "Indiana", "IA": "Iowa",
+    "KS": "Kansas", "KY": "Kentucky", "LA": "Louisiana", "ME": "Maine", "MD": "Maryland",
+    "MA": "Massachusetts", "MI": "Michigan", "MN": "Minnesota", "MS": "Mississippi",
+    "MO": "Missouri", "MT": "Montana", "NE": "Nebraska", "NV": "Nevada", "NH": "New Hampshire",
+    "NJ": "New Jersey", "NM": "New Mexico", "NY": "New York", "NC": "North Carolina",
+    "ND": "North Dakota", "OH": "Ohio", "OK": "Oklahoma", "OR": "Oregon", "PA": "Pennsylvania",
+    "RI": "Rhode Island", "SC": "South Carolina", "SD": "South Dakota", "TN": "Tennessee",
+    "TX": "Texas", "UT": "Utah", "VT": "Vermont", "VA": "Virginia", "WA": "Washington",
+    "WV": "West Virginia", "WI": "Wisconsin", "WY": "Wyoming", "DC": "District of Columbia",
+}
+
 
 def token():
     if value := os.environ.get("JOB_SEARCH_API_TOKEN"):
@@ -157,10 +175,42 @@ def values_for(application, profile):
         "state": state.strip(),
         "linkedin": profile.get("linkedin_url", ""),
         "portfolio": profile.get("portfolio_url", ""),
+        "country": "United States",
         "cover_letter_text": materials.get("cover_letter", ""),
         "address": profile.get("street_address", ""),
         "zip": profile.get("postal_code", ""),
     }
+
+
+def choose_from_menu(ref, label, wanted):
+    """
+    Drive a button-and-menu dropdown: open it, find the option, click it.
+
+    Returns True if something was selected. On no match the menu is closed with
+    Escape rather than left hanging over the rest of the form.
+    """
+    candidates = {w.strip().lower() for w in wanted if w and w.strip()}
+    if not candidates:
+        return False
+
+    # Scroll it into view first: a control below the fold can be clicked but its
+    # menu renders where it can't be read. Selecting from an earlier dropdown
+    # also re-renders this one, so let the page settle before clicking or the
+    # click lands mid-render and the menu never opens.
+    browser("scrollintoview", f"@{ref}", check=False)
+    browser("wait", "--load", "networkidle", check=False)
+    browser("click", f"@{ref}")
+    options = snapshot_refs()
+    for option_ref, node in options.items():
+        if node.get("role") not in {"menuitem", "option", "menuitemradio"}:
+            continue
+        if node.get("name", "").strip().lower() in candidates:
+            browser("click", f"@{option_ref}")
+            browser("wait", "--load", "networkidle", check=False)
+            return True
+
+    browser("press", "Escape", check=False)
+    return False
 
 
 def match_field(name):
@@ -231,6 +281,30 @@ def run(application_id, dry_run):
             continue
         browser("fill", f"@{ref}", values[key])
         filled.append(f"{name} ← {key}")
+
+    # Dropdowns are resolved by name, one at a time, re-snapshotting before each.
+    # Refs die on any page change, and selecting from one menu re-renders the
+    # form — so a ref captured for the second dropdown before touching the first
+    # is already stale by the time we reach it.
+    pending = sorted({
+        (key, node.get("name", ""))
+        for node in snapshot_refs().values()
+        if node.get("role") in {"button", "combobox"} and node.get("name")
+        for key, pattern in CHOICE_RULES
+        if re.search(pattern, node["name"].strip().lower())
+    })
+    for key, name in pending:
+        value = values.get(key, "")
+        wanted = [value, STATES.get(value.upper(), "")] if key == "state" else [value]
+        ref = next(
+            (r for r, n in snapshot_refs().items()
+             if n.get("name") == name and n.get("role") in {"button", "combobox"}),
+            None,
+        )
+        if ref and choose_from_menu(ref, name, wanted):
+            filled.append(f"{name.split()[0]} ← {key}")
+        else:
+            skipped.append(f"{name.split()[0]} (dropdown)")
 
     for ref, label in file_input_labels().items():
         kind = next((k for k, pattern in FILE_RULES if re.search(pattern, label, re.I)), None)
