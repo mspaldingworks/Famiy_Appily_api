@@ -6,6 +6,9 @@ class IngestedPosting(models.Model):
         NEW = "new", "New"
         TRIAGED = "triaged", "Triaged"
         DISMISSED = "dismissed", "Dismissed"
+        # The employer took the listing down. Kept rather than deleted: an
+        # application may point at it, and its materials cost real money.
+        EXPIRED = "expired", "No longer listed"
 
     source = models.CharField(max_length=100, help_text="e.g. apify:indeed, rss:indeed, email")
     title = models.CharField(max_length=300)
