@@ -203,6 +203,18 @@ class ReviewAndApproveTests(TestCase):
                       "cover_letter_drive_url", "status"):
             self.assertIn(field, row)
 
+    def test_an_application_without_materials_reports_null_not_empty(self):
+        # An empty object claims to be materials while missing every field. The
+        # iOS client decodes this into a typed optional, and one such row broke
+        # the whole Drafts screen with "decoding failed".
+        from tracker.models import Application
+
+        bare = Application.objects.create(
+            company=self.application.company, role_title="Legacy row")
+        response = self.client.get(reverse("application-list"), **self.auth)
+        row = next(r for r in response.json() if r["id"] == bare.pk)
+        self.assertIsNone(row["generated_materials"])
+
     def test_requires_authentication(self):
         for name in ("application-approve", "application-edit-materials"):
             self.assertIn(

@@ -45,8 +45,11 @@ class ApplicationSerializer(serializers.ModelSerializer):
         return describe(self.get_apply_url(application))
 
     def get_generated_materials(self, application):
+        # null, not {}, when there's nothing: an empty object claims to be
+        # materials while missing every field, which is harder for a typed
+        # client to handle than an honest absence.
         posting = application.source_posting
-        return (posting.generated_materials if posting else {}) or {}
+        return (posting.generated_materials if posting else None) or None
 
     class Meta:
         model = Application
