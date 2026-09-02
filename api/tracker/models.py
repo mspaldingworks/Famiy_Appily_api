@@ -33,6 +33,10 @@ class Application(models.Model):
         # Materials generated and the record queued, but nothing submitted yet.
         # This is the "pending" state the Google Sheet shows.
         READY = "ready", "Ready to submit"
+        # She's read the draft and okayed it, but hasn't submitted yet. Separate
+        # from READY so "generated for me" and "I've actually approved this" are
+        # never confused — only the second is safe to act on.
+        APPROVED = "approved", "Approved to send"
         APPLIED = "applied", "Applied"
         PHONE_SCREEN = "phone_screen", "Phone screen"
         INTERVIEW = "interview", "Interview"

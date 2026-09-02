@@ -147,3 +147,65 @@ class ApplicationEndpointTests(TestCase):
 
     def test_requires_authentication(self):
         self.assertEqual(self.client.post(reverse("application-prepare")).status_code, 401)
+
+
+@override_settings(ANTHROPIC_API_KEY="test-key")
+class ReviewAndApproveTests(TestCase):
+    """The review loop: read the draft, edit it, approve it, then mark applied."""
+
+    def setUp(self):
+        from ingestion.services import promote_posting_to_application
+
+        user = get_user_model().objects.create_user("tester", password="x")
+        self.auth = {"HTTP_AUTHORIZATION": f"Token {Token.objects.create(user=user).key}"}
+        ProfessionalProfile.objects.create(legal_name="Madelyn Spalding", master_resume="Background.")
+        self.posting = make_posting("https://example.test/job/review")
+        self.posting.generated_materials = MATERIALS
+        self.posting.save(update_fields=["generated_materials"])
+        self.application = promote_posting_to_application(self.posting)
+
+    def test_approving_records_it_without_sending_anything(self):
+        response = self.client.post(
+            reverse("application-approve", args=[self.application.pk]), **self.auth)
+
+        self.assertEqual(response.status_code, 200)
+        self.application.refresh_from_db()
+        self.assertEqual(self.application.status, Application.Status.APPROVED)
+        # Approval is a note to herself; nothing about the posting changes.
+        self.posting.refresh_from_db()
+        self.assertEqual(self.posting.generated_materials, MATERIALS)
+
+    def test_her_edits_replace_the_generated_text(self):
+        response = self.client.patch(
+            reverse("application-edit-materials", args=[self.application.pk]),
+            {"cover_letter": "My own words.", "gaps": ["Only this one."]},
+            content_type="application/json", **self.auth)
+
+        self.assertEqual(response.status_code, 200)
+        self.posting.refresh_from_db()
+        self.assertEqual(self.posting.generated_materials["cover_letter"], "My own words.")
+        self.assertEqual(self.posting.generated_materials["gaps"], ["Only this one."])
+        # Untouched fields survive.
+        self.assertEqual(self.posting.generated_materials["resume_summary"],
+                         MATERIALS["resume_summary"])
+
+    def test_editing_rejects_a_bullet_list_that_is_not_a_list(self):
+        response = self.client.patch(
+            reverse("application-edit-materials", args=[self.application.pk]),
+            {"resume_bullets": "not a list"},
+            content_type="application/json", **self.auth)
+        self.assertEqual(response.status_code, 400)
+
+    def test_serializer_exposes_what_the_review_screen_needs(self):
+        response = self.client.get(reverse("application-list"), **self.auth)
+        row = next(r for r in response.json() if r["id"] == self.application.pk)
+        for field in ("apply_url", "generated_materials", "resume_drive_url",
+                      "cover_letter_drive_url", "status"):
+            self.assertIn(field, row)
+
+    def test_requires_authentication(self):
+        for name in ("application-approve", "application-edit-materials"):
+            self.assertIn(
+                self.client.post(reverse(name, args=[self.application.pk])).status_code,
+                (401, 405),
+            )

@@ -90,6 +90,58 @@ class ApplicationViewSet(viewsets.ModelViewSet):
         return FileResponse(field.open("rb"), content_type="application/pdf",
                             as_attachment=True, filename=field.name.rsplit("/", 1)[-1])
 
+    @action(detail=True, methods=["post"])
+    def approve(self, request, pk=None):
+        """
+        Record that she's read the draft and okayed it.
+
+        Deliberately separate from submitting: nothing is sent anywhere by this,
+        and nothing downstream treats an unapproved draft as ready to go out.
+        """
+        application = self.get_object()
+        application.status = Application.Status.APPROVED
+        application.save(update_fields=["status"])
+        sync_sheet_quietly()
+        return Response(self.get_serializer(application).data)
+
+    @action(detail=True, methods=["patch"], url_path="materials")
+    def edit_materials(self, request, pk=None):
+        """
+        Replace the generated text with her edits, then re-render and re-upload.
+
+        Her wording beats the model's, so this overwrites the cached materials
+        on the posting — a later "Redo" would regenerate from scratch, which is
+        the intended escape hatch rather than an accident.
+        """
+        from ingestion.documents import build_documents
+
+        application = self.get_object()
+        posting = application.source_posting
+        if not posting:
+            return Response(
+                {"detail": "This application isn't linked to a posting, so there's nothing to edit."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        materials = dict(posting.generated_materials or {})
+        for field in ("cover_letter", "resume_summary"):
+            if field in request.data:
+                materials[field] = str(request.data[field])
+        for field in ("resume_bullets", "gaps"):
+            if field in request.data:
+                value = request.data[field]
+                if not isinstance(value, list):
+                    return Response({"detail": f"{field} must be a list."},
+                                    status=status.HTTP_400_BAD_REQUEST)
+                materials[field] = [str(item) for item in value]
+
+        posting.generated_materials = materials
+        posting.save(update_fields=["generated_materials"])
+        build_documents(application)
+        application.refresh_from_db()
+        sync_sheet_quietly()
+        return Response(self.get_serializer(application).data)
+
     @action(detail=True, methods=["post"], url_path="mark-applied")
     def mark_applied(self, request, pk=None):
         """Flip a queued application to applied and stamp the date."""
