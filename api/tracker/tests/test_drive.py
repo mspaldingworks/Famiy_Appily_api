@@ -8,18 +8,29 @@ PDF = b"%PDF-1.4 fake"
 
 
 class DriveConfigurationTests(SimpleTestCase):
-    @override_settings(GOOGLE_SERVICE_ACCOUNT_FILE="", JOB_DRIVE_FOLDER_ID="")
-    def test_unconfigured_raises_a_readable_error(self):
+    @override_settings(GOOGLE_OAUTH_CLIENT_ID="", GOOGLE_OAUTH_CLIENT_SECRET="",
+                       GOOGLE_OAUTH_REFRESH_TOKEN="", JOB_DRIVE_FOLDER_ID="")
+    def test_unconfigured_names_every_missing_setting(self):
         with self.assertRaises(DriveUnavailable) as caught:
             upload_pdf("x.pdf", PDF)
-        self.assertIn("JOB_DRIVE_FOLDER_ID", str(caught.exception))
+        message = str(caught.exception)
+        for name in ("GOOGLE_OAUTH_CLIENT_ID", "GOOGLE_OAUTH_REFRESH_TOKEN", "JOB_DRIVE_FOLDER_ID"):
+            self.assertIn(name, message)
 
-    @override_settings(GOOGLE_SERVICE_ACCOUNT_FILE="", JOB_DRIVE_FOLDER_ID="")
+    @override_settings(GOOGLE_OAUTH_CLIENT_ID="", GOOGLE_OAUTH_CLIENT_SECRET="",
+                       GOOGLE_OAUTH_REFRESH_TOKEN="", JOB_DRIVE_FOLDER_ID="")
     def test_quiet_upload_never_raises_into_a_user_action(self):
         self.assertEqual(upload_pdf_quietly("x.pdf", PDF), "")
 
+    def test_scope_is_limited_to_files_this_app_creates(self):
+        # Full "drive" scope would let a long-lived stored token read her entire
+        # Drive; the uploader only ever needs to write its own files.
+        from tracker.drive import SCOPES
+        self.assertEqual(SCOPES, ["https://www.googleapis.com/auth/drive.file"])
 
-@override_settings(GOOGLE_SERVICE_ACCOUNT_FILE="/tmp/key.json", JOB_DRIVE_FOLDER_ID="folder-1")
+
+@override_settings(GOOGLE_OAUTH_CLIENT_ID="cid", GOOGLE_OAUTH_CLIENT_SECRET="secret",
+                   GOOGLE_OAUTH_REFRESH_TOKEN="refresh", JOB_DRIVE_FOLDER_ID="folder-1")
 class DriveUploadTests(TestCase):
     def make_session(self, existing=None):
         session = MagicMock()

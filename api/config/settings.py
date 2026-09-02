@@ -148,6 +148,14 @@ JOB_SHEET_ID = os.environ.get("JOB_SHEET_ID", "")
 # The same service account needs Editor access to the folder.
 JOB_DRIVE_FOLDER_ID = os.environ.get("JOB_DRIVE_FOLDER_ID", "")
 
+# Drive uploads run as the user, not as the service account: service accounts
+# have no Drive storage quota, so files they create in a consumer account are
+# refused. The refresh token is long-lived — it only dies if she revokes access
+# or the OAuth consent screen is left unpublished (Testing mode expires it in 7 days).
+GOOGLE_OAUTH_CLIENT_ID = os.environ.get("GOOGLE_OAUTH_CLIENT_ID", "")
+GOOGLE_OAUTH_CLIENT_SECRET = os.environ.get("GOOGLE_OAUTH_CLIENT_SECRET", "")
+GOOGLE_OAUTH_REFRESH_TOKEN = os.environ.get("GOOGLE_OAUTH_REFRESH_TOKEN", "")
+
 # The suite is run inside the production container (there's no separate test
 # host), so a FileField save in a test would write real files into live media —
 # it has done exactly that. Redirect both the path and the storage backend, since
@@ -161,6 +169,16 @@ if "test" in sys.argv:
             "OPTIONS": {"location": MEDIA_ROOT},
         },
     }
+    # Blank every outbound credential too. Redirecting local storage isn't
+    # enough: build_documents also uploads to Drive, and the suite duly wrote
+    # test-fixture PDFs into her real folder. Anything that reaches Google must
+    # be mocked in a test, never live.
+    GOOGLE_SERVICE_ACCOUNT_FILE = ""
+    JOB_SHEET_ID = ""
+    JOB_DRIVE_FOLDER_ID = ""
+    GOOGLE_OAUTH_CLIENT_ID = ""
+    GOOGLE_OAUTH_CLIENT_SECRET = ""
+    GOOGLE_OAUTH_REFRESH_TOKEN = ""
 
 LOGIN_URL = "/admin/login/"
 LOGIN_REDIRECT_URL = "/admin/"

@@ -17,7 +17,10 @@ from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
-SCOPES = ["https://www.googleapis.com/auth/drive"]
+# drive.file only: access is limited to files this app creates, so the stored
+# credentials can never read the rest of her Drive.
+SCOPES = ["https://www.googleapis.com/auth/drive.file"]
+TOKEN_URI = "https://oauth2.googleapis.com/token"
 UPLOAD_URL = "https://www.googleapis.com/upload/drive/v3/files"
 FILES_URL = "https://www.googleapis.com/drive/v3/files"
 
@@ -27,17 +30,36 @@ class DriveUnavailable(Exception):
 
 
 def _session():
-    if not settings.GOOGLE_SERVICE_ACCOUNT_FILE or not settings.JOB_DRIVE_FOLDER_ID:
-        raise DriveUnavailable(
-            "Drive upload isn't configured "
-            "(needs GOOGLE_SERVICE_ACCOUNT_FILE and JOB_DRIVE_FOLDER_ID)."
-        )
+    """
+    Authorised session acting as the user, NOT as the service account.
+
+    Service accounts have no Drive storage quota of their own, so anything they
+    create in a consumer account's Drive is rejected outright — Google's own
+    workarounds (shared drives, domain-wide delegation) both need Workspace.
+    A user refresh token sidesteps that: files are created by her, owned by her,
+    and counted against her quota.
+    """
+    missing = [
+        name for name, value in (
+            ("GOOGLE_OAUTH_CLIENT_ID", settings.GOOGLE_OAUTH_CLIENT_ID),
+            ("GOOGLE_OAUTH_CLIENT_SECRET", settings.GOOGLE_OAUTH_CLIENT_SECRET),
+            ("GOOGLE_OAUTH_REFRESH_TOKEN", settings.GOOGLE_OAUTH_REFRESH_TOKEN),
+            ("JOB_DRIVE_FOLDER_ID", settings.JOB_DRIVE_FOLDER_ID),
+        ) if not value
+    ]
+    if missing:
+        raise DriveUnavailable(f"Drive upload isn't configured (needs {', '.join(missing)}).")
 
     import google.auth.transport.requests
-    from google.oauth2.service_account import Credentials
+    from google.oauth2.credentials import Credentials
 
-    credentials = Credentials.from_service_account_file(
-        settings.GOOGLE_SERVICE_ACCOUNT_FILE, scopes=SCOPES
+    credentials = Credentials(
+        token=None,
+        refresh_token=settings.GOOGLE_OAUTH_REFRESH_TOKEN,
+        client_id=settings.GOOGLE_OAUTH_CLIENT_ID,
+        client_secret=settings.GOOGLE_OAUTH_CLIENT_SECRET,
+        token_uri=TOKEN_URI,
+        scopes=SCOPES,
     )
     return google.auth.transport.requests.AuthorizedSession(credentials)
 

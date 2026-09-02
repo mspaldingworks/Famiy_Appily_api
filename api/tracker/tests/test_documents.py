@@ -88,6 +88,17 @@ class DocumentRenderingTests(TestCase):
         )
         self.application = promote_posting_to_application(self.posting)
 
+    def test_rendering_does_not_reach_google(self):
+        # The suite runs against the production container with live credentials
+        # in the environment, and this path uploads to Drive. It wrote fixture
+        # PDFs into her real folder once; settings blanks the credentials under
+        # test so it can't happen again.
+        from django.conf import settings
+
+        self.assertEqual(settings.JOB_DRIVE_FOLDER_ID, "")
+        self.assertEqual(settings.GOOGLE_OAUTH_REFRESH_TOKEN, "")
+        self.assertEqual(settings.JOB_SHEET_ID, "")
+
     def test_renders_both_pdfs(self):
         written = build_documents(self.application)
 
