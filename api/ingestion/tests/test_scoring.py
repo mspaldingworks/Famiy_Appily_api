@@ -124,3 +124,61 @@ class UnpaidRoleTests(SimpleTestCase):
         ))
         self.assertGreater(score, 0)
         self.assertNotIn("Unpaid or volunteer position", reasons)
+
+
+class ATSDetectionTests(SimpleTestCase):
+    """
+    Which portals demand an account before showing the form. Getting this wrong
+    in the "requires account" direction is worse than being unsure: it would put
+    a warning badge on a perfectly open application.
+    """
+
+    def test_account_gated_platforms_are_flagged_with_a_sign_in_url(self):
+        from ingestion.ats import describe
+
+        workday = describe("https://healogics.wd5.myworkdayjobs.com/healogics/job/x/Program-Director_JR1")
+        self.assertEqual(workday["platform"], "Workday")
+        self.assertTrue(workday["requires_account"])
+        # A Workday tenant's bare origin 406s; the site name carries the login.
+        self.assertEqual(workday["sign_in_url"],
+                         "https://healogics.wd5.myworkdayjobs.com/healogics/login")
+
+        # Some tenants put a locale before the site name; dropping it gives
+        # /en-US/login, which 404s.
+        localised = describe(
+            "https://uofl.wd1.myworkdayjobs.com/en-US/UofLCareerSite/job/HSC/Program-Manager_R1")
+        self.assertEqual(localised["sign_in_url"],
+                         "https://uofl.wd1.myworkdayjobs.com/en-US/UofLCareerSite/login")
+
+        icims = describe("https://external-canoncareers.icims.com/jobs/34822/job")
+        self.assertTrue(icims["requires_account"])
+        self.assertEqual(icims["sign_in_url"], "https://external-canoncareers.icims.com/")
+
+    def test_open_platforms_are_not_flagged(self):
+        from ingestion.ats import describe
+
+        for url in ("https://jobs.smartrecruiters.com/Dungarvin/744000146516192",
+                    "https://pdga.bamboohr.com/careers/37",
+                    "https://boards.greenhouse.io/acme/jobs/1"):
+            with self.subTest(url=url):
+                result = describe(url)
+                self.assertFalse(result["requires_account"])
+                self.assertEqual(result["sign_in_url"], "")
+
+    def test_indeed_is_not_treated_as_account_gated(self):
+        # Half of Indeed's links bounce to the employer's own site. Flagging
+        # them all badged 25 of 59 postings and pointed at indeed.com's
+        # homepage, which told her nothing.
+        from ingestion.ats import describe
+
+        result = describe("http://www.indeed.com/job/director-development-fabad")
+        self.assertEqual(result["platform"], "Indeed")
+        self.assertFalse(result["requires_account"])
+        self.assertEqual(result["sign_in_url"], "")
+
+    def test_unknown_hosts_are_assumed_open(self):
+        from ingestion.ats import describe
+
+        for url in ("https://heart.jobs/clarksburg-wv/lead/22C6", "", "not a url"):
+            with self.subTest(url=url):
+                self.assertFalse(describe(url)["requires_account"])

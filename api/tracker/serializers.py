@@ -31,12 +31,18 @@ class ApplicationSerializer(serializers.ModelSerializer):
     # the tailored text without a second round trip per application.
     apply_url = serializers.SerializerMethodField()
     generated_materials = serializers.SerializerMethodField()
+    platform = serializers.SerializerMethodField()
 
     def get_apply_url(self, application):
         posting = application.source_posting
         if not posting:
             return application.job_url
         return posting.apply_url or posting.url or application.job_url
+
+    def get_platform(self, application):
+        from ingestion.ats import describe
+
+        return describe(self.get_apply_url(application))
 
     def get_generated_materials(self, application):
         posting = application.source_posting
@@ -46,7 +52,7 @@ class ApplicationSerializer(serializers.ModelSerializer):
         model = Application
         fields = [
             "id", "company", "company_name", "source_posting", "apply_url",
-            "generated_materials", "role_title", "job_url", "status", "source",
+            "generated_materials", "platform", "role_title", "job_url", "status", "source",
             "applied_date", "salary_notes", "resume", "cover_letter",
             "resume_drive_url", "cover_letter_drive_url", "notes",
             "created_at", "updated_at", "events",
