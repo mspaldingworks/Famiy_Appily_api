@@ -2,6 +2,7 @@ from rest_framework import serializers
 from rest_framework.validators import UniqueValidator
 
 from .ats import describe
+from .details import describe as describe_details
 from .models import IngestedPosting
 
 
@@ -12,6 +13,10 @@ class IngestedPostingSerializer(serializers.ModelSerializer):
     platform = serializers.SerializerMethodField()
     requires_account = serializers.SerializerMethodField()
     sign_in_url = serializers.SerializerMethodField()
+    details = serializers.SerializerMethodField()
+
+    def get_details(self, posting):
+        return describe_details(posting)
 
     def _ats(self, posting):
         return describe(posting.apply_url or posting.url)
@@ -27,9 +32,13 @@ class IngestedPostingSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = IngestedPosting
+        # raw_payload is deliberately absent from the read shape: it made the
+        # list response 710KB of scraper internals the app never decoded.
+        # `details` carries the readable parts instead.
         fields = ["id", "source", "title", "company_name", "url", "apply_url", "raw_payload",
                   "status", "score", "score_reasons", "created_at",
-                  "platform", "requires_account", "sign_in_url"]
+                  "platform", "requires_account", "sign_in_url", "details"]
+        extra_kwargs = {"raw_payload": {"write_only": True}}
         read_only_fields = ["status", "created_at", "score", "score_reasons"]
         # Meta-level validators only; the url field also gets its own
         # UniqueValidator from the model constraint — cleared in __init__ below.
