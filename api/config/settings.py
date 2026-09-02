@@ -143,6 +143,11 @@ ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 GOOGLE_SERVICE_ACCOUNT_FILE = os.environ.get("GOOGLE_SERVICE_ACCOUNT_FILE", "")
 JOB_SHEET_ID = os.environ.get("JOB_SHEET_ID", "")
 
+# Drive folder the generated application PDFs are mirrored into, so they're
+# reachable from an employer's upload dialog rather than only through the API.
+# The same service account needs Editor access to the folder.
+JOB_DRIVE_FOLDER_ID = os.environ.get("JOB_DRIVE_FOLDER_ID", "")
+
 # The suite is run inside the production container (there's no separate test
 # host), so a FileField save in a test would write real files into live media —
 # it has done exactly that. Redirect both the path and the storage backend, since

@@ -64,6 +64,10 @@ class Application(models.Model):
     salary_notes = models.CharField(max_length=200, blank=True)
     resume = models.FileField(upload_to="applications/resumes/", blank=True, null=True)
     cover_letter = models.FileField(upload_to="applications/cover_letters/", blank=True, null=True)
+    # Drive copies of the two PDFs above — what she actually opens when filling
+    # in an employer's form, and what the Google Sheet links to.
+    resume_drive_url = models.URLField(max_length=500, blank=True)
+    cover_letter_drive_url = models.URLField(max_length=500, blank=True)
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

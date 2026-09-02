@@ -168,6 +168,7 @@ def build_documents(application):
     slug = re.sub(r"[^A-Za-z0-9]+", "-", f"{application.company.name}-{application.role_title}").strip("-")[:45]
 
     written = []
+    letter_bytes = resume_bytes = None
     try:
         # Django uniquifies a colliding name rather than overwriting, so
         # re-rendering would leave the previous PDF orphaned on disk forever.
@@ -175,15 +176,28 @@ def build_documents(application):
             if field:
                 field.delete(save=False)
 
-        application.cover_letter.save(
-            f"{slug}-cover-letter.pdf", ContentFile(build_cover_letter_pdf(materials, profile)), save=False
-        )
-        application.resume.save(
-            f"{slug}-resume.pdf", ContentFile(build_resume_pdf(materials, profile)), save=False
-        )
+        letter_bytes = build_cover_letter_pdf(materials, profile)
+        resume_bytes = build_resume_pdf(materials, profile)
+
+        application.cover_letter.save(f"{slug}-cover-letter.pdf", ContentFile(letter_bytes), save=False)
+        application.resume.save(f"{slug}-resume.pdf", ContentFile(resume_bytes), save=False)
         application.save(update_fields=["cover_letter", "resume"])
         written = [application.cover_letter.name, application.resume.name]
     except Exception:
         # A failed render must not lose the application record itself.
         logger.exception("Couldn't render PDFs for application %s", application.pk)
+        return written
+
+    # Drive is where she reaches them from an employer's upload dialog; the API
+    # copy is only useful inside the app. Failures here are logged, never raised
+    # — the PDFs are already saved and downloadable either way.
+    from tracker.drive import upload_pdf_quietly
+
+    letter_url = upload_pdf_quietly(f"{slug}-cover-letter.pdf", letter_bytes)
+    resume_url = upload_pdf_quietly(f"{slug}-resume.pdf", resume_bytes)
+    if letter_url or resume_url:
+        application.cover_letter_drive_url = letter_url
+        application.resume_drive_url = resume_url
+        application.save(update_fields=["cover_letter_drive_url", "resume_drive_url"])
+
     return written

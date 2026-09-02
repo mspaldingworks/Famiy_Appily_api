@@ -47,6 +47,7 @@ class ApplicationSerializer(serializers.ModelSerializer):
         fields = [
             "id", "company", "company_name", "source_posting", "apply_url",
             "generated_materials", "role_title", "job_url", "status", "source",
-            "applied_date", "salary_notes", "resume", "cover_letter", "notes",
+            "applied_date", "salary_notes", "resume", "cover_letter",
+            "resume_drive_url", "cover_letter_drive_url", "notes",
             "created_at", "updated_at", "events",
         ]
