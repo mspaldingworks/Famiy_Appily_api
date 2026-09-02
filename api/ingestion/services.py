@@ -17,9 +17,12 @@ def ingest_items(items, source):
     normalized = [mapped for mapped in (normalize_item(item, source) for item in items) if mapped]
     unmappable = len(items) - len(normalized)
 
+    # Deliberately NOT filtered by source: the six per-lane searches overlap, so
+    # the same job arrives from several of them. Scoping this to one source is
+    # what produced duplicate postings — and duplicate applications behind them.
     batch_urls = {mapped["url"] for mapped in normalized if mapped["url"]}
     already_stored = set(
-        IngestedPosting.objects.filter(source=source, url__in=batch_urls).values_list("url", flat=True)
+        IngestedPosting.objects.filter(url__in=batch_urls).values_list("url", flat=True)
     )
 
     to_create = []

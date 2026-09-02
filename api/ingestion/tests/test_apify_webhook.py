@@ -84,10 +84,13 @@ class ApifyWebhookTests(TestCase):
         self.assertFalse(IngestedPosting.objects.filter(status=IngestedPosting.Status.NEW).exists())
 
     @patch("ingestion.views.fetch_dataset_items", return_value=DATASET_ITEMS)
-    def test_same_url_from_a_different_board_is_kept(self, _mock_fetch):
+    def test_same_url_from_a_different_board_is_deduped(self, _mock_fetch):
+        # The six per-lane searches overlap heavily, so the same job arrives
+        # from several of them. Keeping one copy per board meant duplicate
+        # postings in the feed and, once promoted, duplicate applications.
         self._post(source="indeed")
         self._post(source="linkedin")
-        self.assertEqual(IngestedPosting.objects.count(), 4)
+        self.assertEqual(IngestedPosting.objects.count(), len(DATASET_ITEMS))
 
     @patch("ingestion.views.fetch_dataset_items")
     def test_duplicates_within_a_single_batch_are_collapsed(self, mock_fetch):

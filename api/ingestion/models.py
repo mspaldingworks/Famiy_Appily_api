@@ -31,14 +31,16 @@ class IngestedPosting(models.Model):
         # Best fit first; recency breaks ties.
         ordering = ["-score", "-created_at"]
         constraints = [
-            # A recurring scrape re-sees the same jobs every run. Dedupe on
-            # (source, url) regardless of status, so postings the user already
-            # dismissed or promoted don't resurrect on the next run. Partial,
-            # because blank URLs would otherwise all collide with each other.
+            # A recurring scrape re-sees the same jobs every run, and the six
+            # per-lane searches overlap heavily — "Program Manager" comes back
+            # from both the programs and development queries. Dedupe on url
+            # alone rather than (source, url): the same posting is the same job
+            # no matter which search happened to surface it. Partial, because
+            # blank URLs would otherwise all collide with each other.
             models.UniqueConstraint(
-                fields=["source", "url"],
+                fields=["url"],
                 condition=~models.Q(url=""),
-                name="unique_posting_per_source_url",
+                name="unique_posting_per_url",
             )
         ]
 
