@@ -8,7 +8,7 @@ class ProfessionalProfileSerializer(serializers.ModelSerializer):
         model = ProfessionalProfile
         fields = [
             "id", "headline", "summary", "master_resume",
-            "legal_name", "email", "phone", "city_state",
+            "legal_name", "email", "phone", "city_state", "street_address", "postal_code",
             "linkedin_url", "portfolio_url", "updated_at",
         ]
 

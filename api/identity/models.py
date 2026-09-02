@@ -20,6 +20,11 @@ class ProfessionalProfile(models.Model):
     email = models.EmailField(blank=True)
     phone = models.CharField(max_length=50, blank=True)
     city_state = models.CharField(max_length=120, blank=True)
+    # Portals routinely mark street address and ZIP required, so autofill can't
+    # finish a form without them. Kept separate from city_state, which is what
+    # goes on the resume header.
+    street_address = models.CharField(max_length=200, blank=True)
+    postal_code = models.CharField(max_length=20, blank=True)
     linkedin_url = models.URLField(blank=True)
     portfolio_url = models.URLField(blank=True)
 

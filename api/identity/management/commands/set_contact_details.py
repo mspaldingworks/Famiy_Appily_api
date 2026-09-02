@@ -2,7 +2,8 @@ from django.core.management.base import BaseCommand
 
 from identity.models import ProfessionalProfile, ProfileLink
 
-FIELDS = ["legal_name", "email", "phone", "city_state", "linkedin_url", "portfolio_url"]
+FIELDS = ["legal_name", "email", "phone", "city_state", "street_address",
+          "postal_code", "linkedin_url", "portfolio_url"]
 
 
 class Command(BaseCommand):
