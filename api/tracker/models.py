@@ -43,6 +43,10 @@ class Application(models.Model):
         OFFER = "offer", "Offer"
         REJECTED = "rejected", "Rejected"
         WITHDRAWN = "withdrawn", "Withdrawn"
+        # Removed from the pipeline before it was ever sent. Distinct from
+        # WITHDRAWN, which means she pulled out of a live application, and not a
+        # deletion — the generated text cost money and the PDFs still exist.
+        DISCARDED = "discarded", "Removed"
 
     class Source(models.TextChoices):
         MANUAL = "manual", "Added manually"

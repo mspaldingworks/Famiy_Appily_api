@@ -142,6 +142,37 @@ class ApplicationViewSet(viewsets.ModelViewSet):
         sync_sheet_quietly()
         return Response(self.get_serializer(application).data)
 
+    @action(detail=True, methods=["post"])
+    def discard(self, request, pk=None):
+        """
+        Remove an application from the pipeline before it was ever sent.
+
+        Not a delete: the generated text cost real money, the PDFs exist in
+        Drive, and undo has to be able to put it back. The source posting is
+        dismissed too, so it doesn't reappear in the feed tomorrow.
+        """
+        from ingestion.models import IngestedPosting
+
+        application = self.get_object()
+        application.status = Application.Status.DISCARDED
+        application.save(update_fields=["status"])
+
+        if posting := application.source_posting:
+            posting.status = IngestedPosting.Status.DISMISSED
+            posting.save(update_fields=["status"])
+
+        sync_sheet_quietly()
+        return Response(self.get_serializer(application).data)
+
+    @action(detail=True, methods=["post"])
+    def restore(self, request, pk=None):
+        """Undo a discard, putting it back where it was."""
+        application = self.get_object()
+        application.status = Application.Status.READY
+        application.save(update_fields=["status"])
+        sync_sheet_quietly()
+        return Response(self.get_serializer(application).data)
+
     @action(detail=True, methods=["post"], url_path="mark-applied")
     def mark_applied(self, request, pk=None):
         """Flip a queued application to applied and stamp the date."""

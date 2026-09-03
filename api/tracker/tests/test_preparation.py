@@ -221,3 +221,64 @@ class ReviewAndApproveTests(TestCase):
                 self.client.post(reverse(name, args=[self.application.pk])).status_code,
                 (401, 405),
             )
+
+
+@override_settings(ANTHROPIC_API_KEY="test-key")
+class RemoveAndUndoTests(TestCase):
+    """
+    Removing is reversible by design — the app's own rules (CLAUDE.md §3.5) ask
+    for undo rather than a confirmation dialog, because dialogs get dismissed
+    reflexively and undo actually protects the data.
+    """
+
+    def setUp(self):
+        from ingestion.services import promote_posting_to_application
+
+        user = get_user_model().objects.create_user("tester", password="x")
+        self.auth = {"HTTP_AUTHORIZATION": f"Token {Token.objects.create(user=user).key}"}
+        self.posting = make_posting("https://example.test/job/remove")
+        self.posting.generated_materials = MATERIALS
+        self.posting.save(update_fields=["generated_materials"])
+        self.application = promote_posting_to_application(self.posting)
+
+    def test_discarding_keeps_the_record_and_its_materials(self):
+        response = self.client.post(
+            reverse("application-discard", args=[self.application.pk]), **self.auth)
+
+        self.assertEqual(response.status_code, 200)
+        self.application.refresh_from_db()
+        self.assertEqual(self.application.status, Application.Status.DISCARDED)
+        # The generated text cost money; removing it from a list must not burn it.
+        self.posting.refresh_from_db()
+        self.assertEqual(self.posting.generated_materials, MATERIALS)
+
+    def test_discarding_also_takes_the_posting_out_of_the_feed(self):
+        # Otherwise tomorrow's feed shows the job she just removed.
+        self.client.post(reverse("application-discard", args=[self.application.pk]), **self.auth)
+        self.posting.refresh_from_db()
+        self.assertEqual(self.posting.status, IngestedPosting.Status.DISMISSED)
+
+    def test_restore_puts_it_back(self):
+        self.client.post(reverse("application-discard", args=[self.application.pk]), **self.auth)
+        self.client.post(reverse("application-restore", args=[self.application.pk]), **self.auth)
+
+        self.application.refresh_from_db()
+        self.assertEqual(self.application.status, Application.Status.READY)
+
+    def test_dismissing_a_posting_removes_it_from_the_feed_and_restore_returns_it(self):
+        posting = make_posting("https://example.test/job/feed-remove")
+        feed = reverse("ingestedposting-list") + "?status=new"
+
+        self.client.post(reverse("ingestedposting-dismiss", args=[posting.pk]), **self.auth)
+        ids = [row["id"] for row in self.client.get(feed, **self.auth).json()]
+        self.assertNotIn(posting.pk, ids)
+
+        self.client.post(reverse("ingestedposting-restore", args=[posting.pk]), **self.auth)
+        ids = [row["id"] for row in self.client.get(feed, **self.auth).json()]
+        self.assertIn(posting.pk, ids)
+
+    def test_removing_requires_authentication(self):
+        for name, args in (("application-discard", [self.application.pk]),
+                           ("ingestedposting-dismiss", [self.posting.pk])):
+            with self.subTest(name=name):
+                self.assertEqual(self.client.post(reverse(name, args=args)).status_code, 401)

@@ -66,6 +66,23 @@ class IngestedPostingViewSet(viewsets.ModelViewSet):
         return Response(materials)
 
     @action(detail=True, methods=["post"])
+    def dismiss(self, request, pk=None):
+        """Take a posting out of the feed. Reversible via restore."""
+        posting = self.get_object()
+        posting.status = IngestedPosting.Status.DISMISSED
+        posting.save(update_fields=["status"])
+        return Response(self.get_serializer(posting).data)
+
+    @action(detail=True, methods=["post"])
+    def restore(self, request, pk=None):
+        """Undo a dismissal — §3.5 of the app's own rules asks for undo, not a
+        confirmation dialog, because dialogs get dismissed reflexively."""
+        posting = self.get_object()
+        posting.status = IngestedPosting.Status.NEW
+        posting.save(update_fields=["status"])
+        return Response(self.get_serializer(posting).data)
+
+    @action(detail=True, methods=["post"])
     def promote(self, request, pk=None):
         posting = self.get_object()
         if posting.status == IngestedPosting.Status.TRIAGED:
