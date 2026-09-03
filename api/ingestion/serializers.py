@@ -3,6 +3,7 @@ from rest_framework.validators import UniqueValidator
 
 from .ats import describe
 from .details import describe as describe_details
+from .skills import summarise as summarise_skills
 from .models import IngestedPosting
 
 
@@ -14,9 +15,26 @@ class IngestedPostingSerializer(serializers.ModelSerializer):
     requires_account = serializers.SerializerMethodField()
     sign_in_url = serializers.SerializerMethodField()
     details = serializers.SerializerMethodField()
+    skills = serializers.SerializerMethodField()
 
     def get_details(self, posting):
         return describe_details(posting)
+
+    def get_skills(self, posting):
+        return summarise_skills(posting, self._skill_names())
+
+    def _skill_names(self):
+        """
+        Read her skill list once per response, not once per posting.
+
+        Cached on the serializer instance: a 59-posting feed would otherwise
+        issue 59 identical queries.
+        """
+        if not hasattr(self, "_cached_skill_names"):
+            from identity.models import Skill
+
+            self._cached_skill_names = tuple(Skill.objects.values_list("name", flat=True))
+        return self._cached_skill_names
 
     def _ats(self, posting):
         return describe(posting.apply_url or posting.url)
@@ -37,7 +55,7 @@ class IngestedPostingSerializer(serializers.ModelSerializer):
         # `details` carries the readable parts instead.
         fields = ["id", "source", "title", "company_name", "url", "apply_url", "raw_payload",
                   "status", "score", "score_reasons", "created_at",
-                  "platform", "requires_account", "sign_in_url", "details"]
+                  "platform", "requires_account", "sign_in_url", "details", "skills"]
         extra_kwargs = {"raw_payload": {"write_only": True}}
         read_only_fields = ["status", "created_at", "score", "score_reasons"]
         # Meta-level validators only; the url field also gets its own
