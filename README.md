@@ -1,12 +1,12 @@
-# Family Appily — API / Data Contracts
+# Family Appily — Data Contracts
 
 Companion repository to [`Family_Appily_app`](https://github.com/mspaldingworks/Family_Appily_app).
 
 ## Read this first
 
-See [`ARCHITECTURE_DECISION.md`](./ARCHITECTURE_DECISION.md) for the resolved architecture. Short version: **household data (chores, rotation, tickets) has no backend** — SwiftData + CloudKit private database only, because the ticket-earning catalog contains a child's therapy-related activities. **Job Search is a deliberate, scoped exception** — it's the adult user's own data, not a child's, and a real dynamic API is needed so an external automation (n8n) can push in RSS-sourced job postings.
+See [`ARCHITECTURE_DECISION.md`](./ARCHITECTURE_DECISION.md) for the resolved architecture. Short version: **there is no backend** — all data (chores, rotation, tickets) lives in SwiftData + a CloudKit private database, because the ticket-earning catalog contains a child's therapy-related activities. This repo holds only the canonical data contracts, served as versioned static JSON files.
 
-This repo now holds both:
+This repo holds:
 
 ## `contracts/` — static data, no server
 
@@ -25,7 +25,3 @@ cp ../Family_Appily_app/family-hub-assets/data/*.json contracts/
 ```
 
 **Privacy constraint**: `contracts/tickets.json` contains entries flagged `private: true` — health-adjacent items belonging to one child. Any consumer of these contracts must not surface them outside that child's own profile and adult accounts.
-
-## `api/` — Django/DRF, the Job Search backend
-
-A real, running service — the one deliberate exception to the "no backend" rule. Three apps: `tracker` (companies/applications/contacts/timeline), `identity` (professional profile/skills/links/resume versions), `ingestion` (the n8n webhook + promote-to-application). Native app auth is DRF TokenAuthentication (`Authorization: Token <token>`); Django admin uses session auth for browser-based management. See `docker-compose/` and `deploy/` for how it runs and deploys.

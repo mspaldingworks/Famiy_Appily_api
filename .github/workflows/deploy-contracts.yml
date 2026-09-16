@@ -2,8 +2,6 @@ name: Deploy contracts
 
 # Deploys contracts/*.json to Hostinger shared hosting as static files.
 # Per ARCHITECTURE_DECISION.md: no server, no database, no auth — just files.
-# This never touches api/ (the Job Search backend), which deploys separately
-# via its own Docker Compose flow on the VPS.
 #
 # Requires two repo secrets, set once in GitHub → Settings → Secrets → Actions:
 #   HOSTINGER_SSH_KEY  — private key for a user with write access to the
